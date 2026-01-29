@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Cell Membrane Fluidity</title>
+    <style>
+        /* --- DESIGN SYSTEM --- */
+        :root {
+            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --text-main: #1c1c1e;
+            --text-sub: #8e8e93;
+            --accent: #007AFF;
+            --track-bg: #e5e5ea;
+            --tick-color: #8e8e93;
+            --bg-app: #ffffff;
+            --bg-panel: rgba(255, 255, 255, 0.96);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-stack);
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 1. HEADER */
+        header {
+            padding: 20px 20px 5px 20px; /* Reduced bottom padding */
+            text-align: center;
+            flex-shrink: 0;
+            z-index: 10;
+            background: transparent;
+            pointer-events: none; /* Let touches pass through to canvas if needed */
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            line-height: 1.2;
+            margin: 0 0 2px 0;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            pointer-events: auto;
+        }
+        
+        .sub-branding {
+            font-size: 0.75rem; 
+            color: #d1d1d6; 
+            font-weight: 500;
+            margin-bottom: 0;
+            letter-spacing: 0.05em;
+            pointer-events: auto;
+        }
+
+        /* 2. VISUAL CONTAINER (Flexible) */
+        #sim-container {
+            flex: 1; /* Take all remaining height */
+            position: relative;
+            width: 100%;
+            min-height: 0; /* Important for flex items to shrink properly */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            /* Ensure canvas is behind overlays */
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1; 
+        }
+
+        /* 3. LEGEND AREA OVERLAY */
+        .overlay-ui {
+            position: absolute;
+            bottom: 20px; /* Sits just above the controls */
+            width: 100%;
+            height: 40px;
+            z-index: 5;
+            pointer-events: none; /* Allow clicks to pass through empty space */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .legend {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text-sub);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.6); /* Slight background for readability */
+            padding: 4px 10px;
+            border-radius: 12px;
+            backdrop-filter: blur(4px);
+        }
+
+        .legend-icon {
+            width: 8px;
+            height: 14px;
+            background-color: #FF9500;
+            border-radius: 2px;
+            display: inline-block;
+        }
+
+        /* RESET BUTTON */
+        /* Positioned absolute within the visual container */
+        .reset-btn {
+            position: absolute;
+            bottom: 25px; /* Aligned vertically near legend */
+            right: 20px;  /* Right thumb zone */
+            pointer-events: auto;
+            
+            background-color: rgba(255, 255, 255, 0.85);
+            color: var(--accent);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 8px 14px;
+            border-radius: 18px;
+            font-family: var(--font-stack);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.2s;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            z-index: 10;
+        }
+
+        .reset-btn:active {
+            transform: scale(0.95);
+            background-color: #f2f2f7;
+        }
+
+        /* 4. CONTROLS */
+        .controls {
+            background-color: var(--bg-panel);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            padding: 20px 24px 60px 24px; 
+            border-top-left-radius: 28px;
+            border-top-right-radius: 28px;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.05);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            position: relative;
+            z-index: 20;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-sub);
+            font-weight: 700;
+        }
+
+        .select-wrapper { position: relative; }
+        
+        select {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 1rem;
+            font-family: inherit;
+            color: var(--text-main);
+            background-color: #fff;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 14px;
+            appearance: none;
+            outline: none;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+        
+        .select-wrapper::after {
+            content: "▼";
+            font-size: 0.6rem;
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-sub);
+            pointer-events: none;
+        }
+
+        .slider-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .slider-icon {
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--text-sub);
+            width: 15px;
+            text-align: center;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            border-radius: 3px;
+            background: linear-gradient(
+                to right, 
+                var(--track-bg) 0%, 
+                var(--track-bg) 49.2%, 
+                var(--tick-color) 49.2%, 
+                var(--tick-color) 50.8%, 
+                var(--track-bg) 50.8%, 
+                var(--track-bg) 100%
+            );
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            height: 28px;
+            width: 28px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 0.5px solid rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -11px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 0 0 20px 0;
+            background-color: var(--bg-panel);
+            font-size: 0.7rem;
+            color: #d1d1d6;
+            font-weight: 400;
+            flex-shrink: 0;
+            margin-top: -20px;
+            position: relative;
+            z-index: 25;
+            letter-spacing: 0.02em;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- TITLE -->
+    <header>
+        <h1>Cell membrane -<br>How fluidity is controlled</h1>
+        <div class="sub-branding">Biology@RI</div>
+    </header>
+
+    <!-- SIMULATION AREA -->
+    <div id="sim-container">
+        <!-- The Canvas -->
+        <canvas id="simCanvas"></canvas>
+        
+        <!-- UI Overlays -->
+        <div class="overlay-ui">
+            <div class="legend">
+                <span class="legend-icon"></span> Cholesterol
+            </div>
+        </div>
+        
+        <!-- Reset Button: Absolute Bottom Right of this container -->
+        <button id="resetBtn" class="reset-btn">Reset ↺</button>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+        <div class="input-group">
+            <label for="conditionSelect">Condition ▾</label>
+            <div class="select-wrapper">
+                <select id="conditionSelect">
+                    <option value="length">Length of phospholipids</option>
+                    <option value="unsaturation">Proportion of unsaturated phospholipids</option>
+                    <option value="temp">Temperature</option>
+                    <option value="cholesterol">Percentage of cholesterol</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Changes</label>
+            <div class="slider-wrapper">
+                <span class="slider-icon">-</span>
+                <input type="range" id="intensitySlider" min="0" max="100" value="50">
+                <span class="slider-icon">+</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>All rights reserved</footer>
+
+    <!-- LOGIC -->
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('sim-container');
+        const select = document.getElementById('conditionSelect');
+        const slider = document.getElementById('intensitySlider');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Graphics Config
+        const config = {
+            headRadius: 6,
+            baseGap: 15, 
+            colorHead: '#6699CC', 
+            colorTail: '#555555',
+            tailWidth: 3,
+            colorChol: '#FF9500',
+            bilayerGap: 30 
+        };
+
+        // State
+        let time = 0;
+        let numLipids = 0;
+        let upperLayer = [];
+        let lowerLayer = [];
+
+        function resize() {
+            // Get accurate dimensions of the flexible container
+            const rect = container.getBoundingClientRect();
+            // Handle high DPI
+            const dpr = window.devicePixelRatio || 1;
+            
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            // Calculate lipids edge-to-edge
+            // Add buffer to ensure no whitespace on edges
+            numLipids = Math.ceil(rect.width / config.baseGap) + 4; 
+            
+            regenerateLipids();
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function regenerateLipids() {
+            const condition = select.value;
+            const val = parseInt(slider.value); 
+            
+            upperLayer = [];
+            lowerLayer = [];
+
+            // 1. UNSATURATION LOGIC
+            // Default Baseline: Upper 28%, Lower 15%
+            let probUnsatUp = 0.28;
+            let probUnsatLow = 0.15;
+
+            // Only change probability if slider controls unsaturation
+            if (condition === 'unsaturation') {
+                if (val >= 50) {
+                    // 50->100: Baseline -> 80%
+                    const ratio = (val - 50) / 50; 
+                    probUnsatUp = 0.28 + (ratio * (0.8 - 0.28));
+                    probUnsatLow = 0.15 + (ratio * (0.8 - 0.15));
+                } else {
+                    // 50->0: Baseline -> 2.5%
+                    const ratio = (50 - val) / 50; 
+                    probUnsatUp = 0.28 - (ratio * (0.28 - 0.025));
+                    probUnsatLow = 0.15 - (ratio * (0.15 - 0.025));
+                }
+            }
+
+            // 2. CHOLESTEROL LOGIC
+            let countCholUp = 5;
+            let countCholLow = 9;
+            
+            if (condition === 'cholesterol') {
+                const baseUp = 5;
+                const baseLow = 9;
+
+                if (val >= 50) {
+                    // Increase to Max
+                    const ratio = (val - 50) / 50;
+                    const maxPossible = Math.floor(numLipids * 0.46);
+                    countCholUp = baseUp + Math.floor(ratio * (maxPossible - baseUp));
+                    countCholLow = baseLow + Math.floor(ratio * (maxPossible - baseLow));
+                } else {
+                    // Decrease to 2.5% of Baseline
+                    const ratio = (50 - val) / 50; 
+                    const minUp = Math.round(baseUp * 0.025); 
+                    const minLow = Math.round(baseLow * 0.025);
+                    countCholUp = Math.round(baseUp - (ratio * (baseUp - minUp)));
+                    countCholLow = Math.round(baseLow - (ratio * (baseLow - minLow)));
+                }
+            }
+
+            // 3. BUILD ARRAYS
+            function buildLayer(probUnsat, countChol) {
+                let layer = [];
+                for(let i=0; i<numLipids; i++) {
+                    layer.push({
+                        isUnsaturated: Math.random() < probUnsat,
+                        hasCholesterol: false 
+                    });
+                }
+                
+                let indices = Array.from({length: numLipids}, (_, i) => i);
+                shuffle(indices);
+                
+                const safeCount = Math.min(countChol, numLipids);
+                for(let k=0; k<safeCount; k++) {
+                    layer[indices[k]].hasCholesterol = true;
+                }
+                return layer;
+            }
+
+            upperLayer = buildLayer(probUnsatUp, countCholUp);
+            lowerLayer = buildLayer(probUnsatLow, countCholLow);
+        }
+
+        window.addEventListener('resize', resize);
+        
+        select.addEventListener('change', () => {
+            slider.value = 50;
+            regenerateLipids();
+        });
+
+        slider.addEventListener('input', () => {
+            if(select.value === 'unsaturation' || select.value === 'cholesterol') {
+                regenerateLipids();
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            select.value = 'length';
+            slider.value = 50;
+            regenerateLipids();
+            resetBtn.style.transform = "scale(0.9)";
+            setTimeout(() => resetBtn.style.transform = "scale(1)", 150);
+        });
+
+        function animate() {
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            ctx.clearRect(0, 0, width, height);
+
+            const condition = select.value;
+            const val = parseInt(slider.value); 
+            const intensity = val / 100;
+
+            // --- PHYSICS ---
+            let tailLen = 40; 
+            let horizontalGap = config.baseGap; 
+            let wriggleSpeed = 0.1;
+            let wriggleAmp = 2; 
+
+            switch(condition) {
+                case "length":
+                    tailLen = 30 + (intensity * 40);
+                    wriggleAmp = 4 - (intensity * 2);
+                    wriggleSpeed = 0.15 - (intensity * 0.07);
+                    break;
+                case "unsaturation":
+                    wriggleAmp = 2 + (intensity * 2);
+                    wriggleSpeed = 0.1 + (intensity * 0.1);
+                    break;
+                case "temp":
+                    wriggleSpeed = 0.05 + (intensity * 0.15);
+                    wriggleAmp = 2 + (intensity * 2); 
+                    horizontalGap = config.baseGap + (intensity * 4);
+                    break;
+                case "cholesterol":
+                    wriggleAmp = 4 - (intensity * 2); 
+                    wriggleSpeed = 0.15 - (intensity * 0.07);
+                    break;
+            }
+
+            time += wriggleSpeed;
+
+            // --- LAYOUT ---
+            // Center lipids in canvas
+            const totalContentWidth = numLipids * horizontalGap;
+            const startX = (width - totalContentWidth) / 2 + (horizontalGap/2);
+            
+            const centerY = height / 2;
+            const topLayerY = centerY - (config.bilayerGap/2) - tailLen - config.headRadius;
+            const botLayerY = centerY + (config.bilayerGap/2) + tailLen + config.headRadius;
+
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            for (let i = 0; i < numLipids; i++) {
+                const xBase = startX + (i * horizontalGap);
+                
+                // Off-screen optimization
+                if (xBase < -50 || xBase > width + 50) continue;
+
+                const vibration = Math.sin(time + (i * 0.7)) * wriggleAmp;
+                const curX = xBase + vibration;
+
+                // DRAW UPPER
+                if (upperLayer[i]) {
+                    drawLipid(curX, topLayerY, tailLen, "down", upperLayer[i].isUnsaturated);
+                    if (upperLayer[i].hasCholesterol) {
+                        drawCholesterol(curX + (horizontalGap/2), topLayerY + config.headRadius, "down");
+                    }
+                }
+
+                // DRAW LOWER
+                if (lowerLayer[i]) {
+                    drawLipid(curX, botLayerY, tailLen, "up", lowerLayer[i].isUnsaturated);
+                    if (lowerLayer[i].hasCholesterol) {
+                        drawCholesterol(curX + (horizontalGap/2), botLayerY - config.headRadius, "up");
+                    }
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function drawLipid(x, y, len, dir, isUnsaturated) {
+            ctx.beginPath();
+            ctx.strokeStyle = config.colorTail;
+            ctx.lineWidth = config.tailWidth;
+            const d = (dir === "down") ? 1 : -1;
+            const headEdgeY = y + (config.headRadius * d);
+
+            // Left Tail
+            ctx.moveTo(x - 3, headEdgeY); 
+            if (isUnsaturated) {
+                const kinkY = headEdgeY + ((len * 0.6) * d); 
+                ctx.lineTo(x - 3, kinkY);
+                ctx.lineTo(x - 12, headEdgeY + (len * d)); 
+            } else {
+                ctx.lineTo(x - 3, headEdgeY + (len * d));
+            }
+
+            // Right Tail
+            ctx.moveTo(x + 3, headEdgeY);
+            ctx.lineTo(x + 3, headEdgeY + (len * d));
+            ctx.stroke();
+
+            // Head
+            ctx.beginPath();
+            ctx.arc(x, y, config.headRadius, 0, Math.PI * 2);
+            ctx.fillStyle = config.colorHead;
+            ctx.fill();
+        }
+
+        function drawCholesterol(x, startY, dir) {
+            const w = 6;
+            const h = 18;
+            const rectY = (dir === "down") ? startY : startY - h;
+            ctx.fillStyle = config.colorChol;
+            ctx.beginPath();
+            ctx.rect(x - w/2, rectY, w, h);
+            ctx.fill();
+        }
+
+        // Init
+        // Slight delay to ensure flex layout is settled on first load
+        setTimeout(() => {
+            slider.value = 50;
+            resize();
+            animate();
+        }, 10);
+
+    </script>
+</body>
+</html>
