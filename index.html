@@ -343,7 +343,6 @@
             tailWidth: 3,
             colorChol: '#FF9500',
             bilayerGap: 12,
-            // Darker Cytoplasm Color
             colorCyto: '#c9d6e3'
         };
 
@@ -359,10 +358,8 @@
             canvas.height = rect.height * dpr;
             ctx.scale(dpr, dpr);
             
-            // EDGE-TO-EDGE:
-            // Calculate enough lipids + large buffer to cover edges in all gap scenarios
+            // EDGE-TO-EDGE
             numLipids = Math.ceil(rect.width / 10) + 25; 
-            
             regenerateLipids();
         }
 
@@ -388,19 +385,18 @@
             if (condition === 'unsaturation') {
                 if (val >= 50) {
                     const ratio = (val - 50) / 50; 
-                    // Baseline -> 80% Unsaturated
                     probUnsatUp = 0.28 + (ratio * (0.8 - 0.28));
                     probUnsatLow = 0.15 + (ratio * (0.8 - 0.15));
                 } else {
                     const ratio = (50 - val) / 50; 
-                    // Baseline -> 5% Unsaturated
                     probUnsatUp = 0.28 - (ratio * (0.28 - 0.05));
                     probUnsatLow = 0.15 - (ratio * (0.15 - 0.05));
                 }
             }
 
             // 2. CHOLESTEROL LOGIC
-            // Target: Reset (50) = 13 Total. Min (0) = 3 Total. Max (100) = ~35 Total.
+            // Target: Reset (50) = 13 Total. Min (0) = 3 Total. 
+            // Max (100) = Increase old max (35) by 25% -> 44 Total.
             let countCholUp = 5;
             let countCholLow = 8; 
             
@@ -411,9 +407,9 @@
                     const ratio = val / 50; 
                     totalChol = 3 + (ratio * (13 - 3));
                 } else {
-                    // Max (+) -> Increase to 35
+                    // Max (+) -> Increase to 44 (which is 25% more than the old 35)
                     const ratio = (val - 50) / 50; 
-                    totalChol = 13 + (ratio * (35 - 13));
+                    totalChol = 13 + (ratio * (44 - 13));
                 }
                 
                 totalChol = Math.round(totalChol);
@@ -492,6 +488,7 @@
                     tailLen = 30 + (intensity * 40);
                     wriggleAmp = 4 - (intensity * 2);
                     wriggleSpeed = 0.15 - (intensity * 0.07);
+                    // 20% Closer at Max
                     horizontalGap = config.baseGap * (1 - (intensity * 0.2));
                     break;
                     
@@ -505,25 +502,27 @@
                     wriggleSpeed = 0.05 + (intensity * 0.35); 
                     wriggleAmp = 2 + (intensity * 2); 
                     
-                    // NEW TEMP LOGIC: 
-                    // Max + (100): +20% distance.
-                    // Min - (0): -25% distance.
                     if (val >= 50) {
+                        // Max +: Increase dist by 20%
                         const ratio = (val - 50) / 50;
                         horizontalGap = config.baseGap * (1 + (ratio * 0.2));
                     } else {
+                        // Min -: Decrease dist by 20% (Adjusted)
                         const ratio = (50 - val) / 50;
-                        horizontalGap = config.baseGap * (1 - (ratio * 0.25));
+                        horizontalGap = config.baseGap * (1 - (ratio * 0.20));
                     }
                     break;
                     
                 case "cholesterol":
                     wriggleAmp = 4 - (intensity * 2); 
                     wriggleSpeed = 0.15 - (intensity * 0.07);
+                    // SPACING LOGIC
                     if (val >= 50) {
+                        // 50->100: Increase gap by 20%
                         const ratio = (val - 50) / 50; 
                         horizontalGap = config.baseGap * (1 + (ratio * 0.2));
                     } else {
+                        // 50->0: Decrease gap by 25%
                         const ratio = (50 - val) / 50;
                         horizontalGap = config.baseGap * (1 - (ratio * 0.25));
                     }
