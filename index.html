@@ -343,7 +343,7 @@
             tailWidth: 3,
             colorChol: '#FF9500',
             bilayerGap: 12,
-            // DARKER CYTOPLASM (#c9d6e3 is significantly darker than previous #f0f5f9)
+            // Darker Cytoplasm Color
             colorCyto: '#c9d6e3'
         };
 
@@ -359,9 +359,8 @@
             canvas.height = rect.height * dpr;
             ctx.scale(dpr, dpr);
             
-            // EDGE-TO-EDGE FIX:
-            // Calculate based on a smaller gap (10px) to ensure we have enough lipids
-            // even when they are packed tight. Add a large buffer (+25) to cover rotation/movement.
+            // EDGE-TO-EDGE:
+            // Calculate enough lipids + large buffer to cover edges in all gap scenarios
             numLipids = Math.ceil(rect.width / 10) + 25; 
             
             regenerateLipids();
@@ -493,7 +492,6 @@
                     tailLen = 30 + (intensity * 40);
                     wriggleAmp = 4 - (intensity * 2);
                     wriggleSpeed = 0.15 - (intensity * 0.07);
-                    // 20% Closer at Max
                     horizontalGap = config.baseGap * (1 - (intensity * 0.2));
                     break;
                     
@@ -506,20 +504,26 @@
                 case "temp":
                     wriggleSpeed = 0.05 + (intensity * 0.35); 
                     wriggleAmp = 2 + (intensity * 2); 
-                    // Max +: Increase dist by 20%
-                    horizontalGap = config.baseGap * (1 + (intensity * 0.2));
+                    
+                    // NEW TEMP LOGIC: 
+                    // Max + (100): +20% distance.
+                    // Min - (0): -25% distance.
+                    if (val >= 50) {
+                        const ratio = (val - 50) / 50;
+                        horizontalGap = config.baseGap * (1 + (ratio * 0.2));
+                    } else {
+                        const ratio = (50 - val) / 50;
+                        horizontalGap = config.baseGap * (1 - (ratio * 0.25));
+                    }
                     break;
                     
                 case "cholesterol":
                     wriggleAmp = 4 - (intensity * 2); 
                     wriggleSpeed = 0.15 - (intensity * 0.07);
-                    // SPACING LOGIC
                     if (val >= 50) {
-                        // 50->100: Increase gap by 20%
                         const ratio = (val - 50) / 50; 
                         horizontalGap = config.baseGap * (1 + (ratio * 0.2));
                     } else {
-                        // 50->0: Decrease gap by 25%
                         const ratio = (50 - val) / 50;
                         horizontalGap = config.baseGap * (1 - (ratio * 0.25));
                     }
@@ -529,8 +533,6 @@
             time += wriggleSpeed;
 
             // --- LAYOUT & CURVATURE ---
-            // Center the entire block. Because numLipids is artificially large to cover edges,
-            // totalContentWidth will be much larger than screen width.
             const totalContentWidth = numLipids * horizontalGap;
             const startX = (width - totalContentWidth) / 2 + (horizontalGap/2);
             const centerY = height / 2;
@@ -541,7 +543,6 @@
             ctx.fillStyle = config.colorCyto;
             ctx.moveTo(0, height);
             ctx.lineTo(0, height/2); 
-            // Draw curve background along whole width
             for(let x=0; x <= width; x+=10) {
                 const dx = x - (width/2);
                 const yCurve = (dx * dx) * curvatureStrength;
@@ -559,7 +560,7 @@
             for (let i = 0; i < numLipids; i++) {
                 const xBase = startX + (i * horizontalGap);
                 
-                // Draw if roughly on screen (with buffer)
+                // Draw only if on screen + small margin
                 if (xBase < -50 || xBase > width + 50) continue;
 
                 const dx = xBase - (width/2);
@@ -580,6 +581,7 @@
                 if (upperLayer[i]) {
                     drawLipid(0, topYOffset, tailLen, "down", upperLayer[i].isUnsaturated);
                     if (upperLayer[i].hasCholesterol) {
+                        // Tucked under head (Upper Layer)
                         let cy = topYOffset + config.headRadius + 10;
                         drawCholesterol(horizontalGap/2, cy);
                     }
@@ -589,6 +591,7 @@
                 if (lowerLayer[i]) {
                     drawLipid(0, botYOffset, tailLen, "up", lowerLayer[i].isUnsaturated);
                     if (lowerLayer[i].hasCholesterol) {
+                        // Tucked above head (Lower Layer)
                         let cy = botYOffset - config.headRadius - 10;
                         drawCholesterol(horizontalGap/2, cy);
                     }
