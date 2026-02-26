@@ -343,7 +343,8 @@
             tailWidth: 3,
             colorChol: '#FF9500',
             bilayerGap: 12,
-            colorCyto: '#f0f5f9'
+            // DARKER CYTOPLASM (#c9d6e3 is significantly darker than previous #f0f5f9)
+            colorCyto: '#c9d6e3'
         };
 
         let time = 0;
@@ -357,7 +358,12 @@
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
             ctx.scale(dpr, dpr);
-            numLipids = Math.ceil(rect.width / config.baseGap) + 4; 
+            
+            // EDGE-TO-EDGE FIX:
+            // Calculate based on a smaller gap (10px) to ensure we have enough lipids
+            // even when they are packed tight. Add a large buffer (+25) to cover rotation/movement.
+            numLipids = Math.ceil(rect.width / 10) + 25; 
+            
             regenerateLipids();
         }
 
@@ -383,16 +389,19 @@
             if (condition === 'unsaturation') {
                 if (val >= 50) {
                     const ratio = (val - 50) / 50; 
+                    // Baseline -> 80% Unsaturated
                     probUnsatUp = 0.28 + (ratio * (0.8 - 0.28));
                     probUnsatLow = 0.15 + (ratio * (0.8 - 0.15));
                 } else {
                     const ratio = (50 - val) / 50; 
+                    // Baseline -> 5% Unsaturated
                     probUnsatUp = 0.28 - (ratio * (0.28 - 0.05));
                     probUnsatLow = 0.15 - (ratio * (0.15 - 0.05));
                 }
             }
 
             // 2. CHOLESTEROL LOGIC
+            // Target: Reset (50) = 13 Total. Min (0) = 3 Total. Max (100) = ~35 Total.
             let countCholUp = 5;
             let countCholLow = 8; 
             
@@ -403,7 +412,7 @@
                     const ratio = val / 50; 
                     totalChol = 3 + (ratio * (13 - 3));
                 } else {
-                    // Max (+) -> Increase by 15% (Target ~35)
+                    // Max (+) -> Increase to 35
                     const ratio = (val - 50) / 50; 
                     totalChol = 13 + (ratio * (35 - 13));
                 }
@@ -520,6 +529,8 @@
             time += wriggleSpeed;
 
             // --- LAYOUT & CURVATURE ---
+            // Center the entire block. Because numLipids is artificially large to cover edges,
+            // totalContentWidth will be much larger than screen width.
             const totalContentWidth = numLipids * horizontalGap;
             const startX = (width - totalContentWidth) / 2 + (horizontalGap/2);
             const centerY = height / 2;
@@ -530,6 +541,7 @@
             ctx.fillStyle = config.colorCyto;
             ctx.moveTo(0, height);
             ctx.lineTo(0, height/2); 
+            // Draw curve background along whole width
             for(let x=0; x <= width; x+=10) {
                 const dx = x - (width/2);
                 const yCurve = (dx * dx) * curvatureStrength;
@@ -546,6 +558,8 @@
 
             for (let i = 0; i < numLipids; i++) {
                 const xBase = startX + (i * horizontalGap);
+                
+                // Draw if roughly on screen (with buffer)
                 if (xBase < -50 || xBase > width + 50) continue;
 
                 const dx = xBase - (width/2);
@@ -566,7 +580,6 @@
                 if (upperLayer[i]) {
                     drawLipid(0, topYOffset, tailLen, "down", upperLayer[i].isUnsaturated);
                     if (upperLayer[i].hasCholesterol) {
-                        // Closer to head: 10px below head center
                         let cy = topYOffset + config.headRadius + 10;
                         drawCholesterol(horizontalGap/2, cy);
                     }
@@ -576,7 +589,6 @@
                 if (lowerLayer[i]) {
                     drawLipid(0, botYOffset, tailLen, "up", lowerLayer[i].isUnsaturated);
                     if (lowerLayer[i].hasCholesterol) {
-                        // Closer to head: 10px above head center
                         let cy = botYOffset - config.headRadius - 10;
                         drawCholesterol(horizontalGap/2, cy);
                     }
